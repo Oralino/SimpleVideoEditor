@@ -1,0 +1,11 @@
+# Ignore PyInstaller and build output folders
+build/
+dist/
+dist1/
+
+# Ignore Python bytecode caches
+__pycache__/
+*.pyc
+
+# Ignore environment files
+.env

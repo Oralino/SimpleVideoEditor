@@ -1,7 +1,10 @@
 import os
 import time
+import threading
 import tkinter as tk
+from tkinter import filedialog, messagebox
 import customtkinter as ctk
+import yt_dlp
 import vlc
 from utils import format_time, get_video_duration
 
@@ -24,11 +27,11 @@ class LeftPanel(ctk.CTkFrame):
 
     def build_ui(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(2, weight=1)
+        self.grid_rowconfigure(3, weight=1)
 
         self.file_btn = ctk.CTkButton(
             self,
-            text="📁 Browse Video File (or Drag & Drop Below)",
+            text="📁 Browse Video File",
             command=self.browse_file,
             font=("Segoe UI", 13, "bold"),
             height=35,
@@ -43,8 +46,26 @@ class LeftPanel(ctk.CTkFrame):
         )
         self.file_label.grid(row=1, column=0, padx=15, pady=(0, 10))
 
+        # YouTube URL input controls
+        yt_box = ctk.CTkFrame(self, fg_color="transparent")
+        yt_box.grid(row=2, column=0, padx=15, pady=(0, 10), sticky="ew")
+        yt_box.grid_columnconfigure(0, weight=1)
+
+        self.yt_entry = ctk.CTkEntry(
+            yt_box, placeholder_text="Paste YouTube URL here..."
+        )
+        self.yt_entry.grid(row=0, column=0, padx=(0, 5), sticky="ew")
+
+        self.yt_btn = ctk.CTkButton(
+            yt_box,
+            text="⬇ Fetch",
+            width=80,
+            command=self.start_youtube_download,
+        )
+        self.yt_btn.grid(row=0, column=1)
+
         self.video_panel = tk.Frame(self, bg="black")
-        self.video_panel.grid(row=2, column=0, padx=15, pady=5, sticky="nsew")
+        self.video_panel.grid(row=3, column=0, padx=15, pady=5, sticky="nsew")
 
         self.drop_hint = tk.Label(
             self.video_panel,
@@ -56,7 +77,7 @@ class LeftPanel(ctk.CTkFrame):
         self.drop_hint.place(relx=0.5, rely=0.5, anchor="center")
 
         controls = ctk.CTkFrame(self, fg_color="transparent")
-        controls.grid(row=3, column=0, padx=15, pady=5, sticky="ew")
+        controls.grid(row=4, column=0, padx=15, pady=5, sticky="ew")
         controls.grid_columnconfigure(0, weight=1)
 
         self.play_btn = ctk.CTkButton(
@@ -85,7 +106,7 @@ class LeftPanel(ctk.CTkFrame):
         self.time_readout.pack(pady=2)
 
         clip_box = ctk.CTkFrame(self, fg_color="transparent")
-        clip_box.grid(row=4, column=0, padx=15, pady=(5, 15), sticky="ew")
+        clip_box.grid(row=5, column=0, padx=15, pady=(5, 15), sticky="ew")
         clip_box.grid_columnconfigure((0, 1), weight=1)
 
         self.set_start_btn = ctk.CTkButton(
@@ -113,6 +134,62 @@ class LeftPanel(ctk.CTkFrame):
             clip_box, placeholder_text="End: 00:00:00"
         )
         self.end_entry.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+
+    def start_youtube_download(self):
+        url = self.yt_entry.get().strip()
+        if not url:
+            return
+
+        self.yt_btn.configure(state="disabled", text="Fetching...")
+        self.yt_entry.configure(state="disabled")
+
+        threading.Thread(
+            target=self.process_youtube_download, args=(url,), daemon=True
+        ).start()
+
+    def process_youtube_download(self, url: str):
+        # Creates a directory and downloads the best quality mp4 format
+        download_dir = os.path.join(os.getcwd(), "youtube_downloads")
+        os.makedirs(download_dir, exist_ok=True)
+
+        def progress_hook(d):
+            # Updates the button text with the download percentage
+            if d['status'] == 'downloading':
+                percent = d.get('_percent_str', '0%').strip()
+                self.after(
+                    0, lambda p=percent: self.yt_btn.configure(text=f"{p}")
+                )
+
+        ydl_opts = {
+            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'outtmpl': os.path.join(download_dir, '%(title)s [%(id)s].%(ext)s'),
+            'merge_output_format': 'mp4',
+            'quiet': True,
+            'no_warnings': True,
+            'progress_hooks': [progress_hook],
+        }
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                filename = ydl.prepare_filename(info)
+
+            self.after(0, lambda f=filename: self.on_download_complete(f))
+        except Exception as e:
+            self.after(
+                0,
+                lambda err=str(e): messagebox.showerror("Download Error", err),
+            )
+            self.after(0, self.reset_youtube_ui)
+
+    def on_download_complete(self, filepath: str):
+        self.reset_youtube_ui()
+        self.load_video(filepath)
+
+    def reset_youtube_ui(self):
+        self.yt_btn.configure(state="normal", text="⬇ Fetch")
+        self.yt_entry.configure(state="normal")
+        self.yt_entry.delete(0, 'end')
 
     def browse_file(self):
         filepath = tk.filedialog.askopenfilename(

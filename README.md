@@ -29,4 +29,5 @@ pip install customtkinter tkinterdnd2 python-vlc yt-dlp
 
 
 
-<img width="1493" height="1152" alt="image" src="https://github.com/user-attachments/assets/2bd999e8-072a-49b7-b3e1-08bb9c9b1cbf" />
+<img width="1497" height="1156" alt="image" src="https://github.com/user-attachments/assets/3723bb12-c1c4-4ed1-864e-f49a7afed4e2" />
+

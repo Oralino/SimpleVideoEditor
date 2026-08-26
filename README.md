@@ -1,5 +1,4 @@
-# FFmpeg Video Studio Pro
-
+# FFmpeg Simple Video Editor
 A desktop video trimming and audio mixing utility built with Python, CustomTkinter, VLC, and FFmpeg. Features drag-and-drop support, hardware-accelerated video encoding, dual-track audio volume controls, stream passthrough, and YouTube video fetching.
 
 ---
